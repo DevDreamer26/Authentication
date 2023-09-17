@@ -1,31 +1,94 @@
-//jshint esversion:6
 const express = require('express');
-const bodyParser = require('body-parser')
+const bodyParser = require('body-parser');
 const ejs = require('ejs');
-const mongoose = require("mongoose");
-const { connect } = require('http2');
+const mongoose = require('mongoose');
 
 const app = express();
 
-app.use(express.static("public"));
+app.use(express.static('public'));
 app.set('view engine', 'ejs');
-app.use(bodyParser.urlencoded({
-    extended:true
-}));
+app.use(bodyParser.urlencoded({ extended: true }));
 
+mongoose.connect('mongodb://localhost:27017/userDB', {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+});
 
-mongoose.connect("mongodb://localhost:27017/userDB", {useNewUrlParser:true});
+const userSchema = {
+  email: String,
+  password: String,
+};
 
-app.get("/",function(req,res){
-    res.render("home");
-})
-app.get("/login",function(req,res){
-    res.render("login");
-})
-app.get("/register",function(req,res){
-    res.render("register");
-})
+const User = mongoose.model('User', userSchema);
 
-app.listen(3000,function(){
-    console.log("Server is running.....")
+app.get('/', function (req, res) {
+  res.render('home');
+});
+
+app.get('/login', function (req, res) {
+  res.render('login');
+});
+
+app.get('/register', function (req, res) {
+  res.render('register');
+});
+
+app.post('/register', function (req, res) {
+  const username = req.body.username;
+  const password = req.body.password;
+
+  if (!username || !password) {
+    const alertMessage = 'Both username and password are required.';
+    return res.send(`<script>alert("${alertMessage}"); window.location.href="/register";</script>`);
+  }
+
+  const newUser = new User({
+    email: username,
+    password: password,
+  });
+
+  newUser.save()
+    .then(() => {
+      res.render('secrets');
+    })
+    .catch((err) => {
+      console.error(err);
+      const alertMessage = 'An error occurred during registration.';
+      res.send(`<script>alert("${alertMessage}"); window.location.href="/register";</script>`);
+    });
+});
+
+app.post('/login', function (req, res) {
+    const username = req.body.username;
+    const password = req.body.password;
+  
+    if (!username || !password) {
+      const alertMessage = 'Both username and password are required.';
+      return res.send(`<script>alert("${alertMessage}"); window.location.href="/login";</script>`);
+    }
+  
+    User.findOne({ email: username })
+      .then((foundUser) => {
+        if (!foundUser) {
+          const alertMessage = 'User not found.';
+          return res.send(`<script>alert("${alertMessage}"); window.location.href="/login";</script>`);
+        }
+  
+        if (foundUser.password !== password) {
+          const alertMessage = 'Incorrect password.';
+          return res.send(`<script>alert("${alertMessage}"); window.location.href="/login";</script>`);
+        }
+  
+        res.render('secrets');
+      })
+      .catch((err) => {
+        console.error(err);
+        const alertMessage = 'An error occurred during login.';
+        res.send(`<script>alert("${alertMessage}"); window.location.href="/login";</script>`);
+      });
+  });
+  
+
+app.listen(3000, function () {
+  console.log('Server is running.....');
 });
