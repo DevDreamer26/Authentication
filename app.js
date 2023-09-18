@@ -1,9 +1,13 @@
+require('dotenv').config();
 const express = require('express');
 const bodyParser = require('body-parser');
 const ejs = require('ejs');
 const mongoose = require('mongoose');
+const encrypt = require('mongoose-encryption'); // Import mongoose-encryption
 
 const app = express();
+
+console.log(process.env.API_KEY);
 
 app.use(express.static('public'));
 app.set('view engine', 'ejs');
@@ -14,10 +18,20 @@ mongoose.connect('mongodb://localhost:27017/userDB', {
   useUnifiedTopology: true,
 });
 
-const userSchema = {
+// Define the user schema
+const userSchema = new mongoose.Schema({
   email: String,
   password: String,
-};
+});
+
+
+
+
+// Apply encryption to the 'password' field
+userSchema.plugin(encrypt, {
+  secret: process.env.SECRET,
+  encryptedFields: ['password'], // Specify the field to encrypt
+});
 
 const User = mongoose.model('User', userSchema);
 
@@ -87,7 +101,6 @@ app.post('/login', function (req, res) {
         res.send(`<script>alert("${alertMessage}"); window.location.href="/login";</script>`);
       });
   });
-  
 
 app.listen(3000, function () {
   console.log('Server is running.....');
