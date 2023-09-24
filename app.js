@@ -3,7 +3,9 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const ejs = require('ejs');
 const mongoose = require('mongoose');
-const md5 =require("md5");
+const bcrypt = require("bcrypt");
+const saltRounds = 10;
+
 
 const app = express();
 
@@ -52,51 +54,63 @@ app.post('/register', function (req, res) {
     return res.send(`<script>alert("${alertMessage}"); window.location.href="/register";</script>`);
   }
 
-  const newUser = new User({
-    email: username,
-    password: md5(password),
-  });
-
-  newUser.save()
-    .then(() => {
-      res.render('secrets');
-    })
-    .catch((err) => {
+  bcrypt.hash(password, saltRounds, function (err, hash) {
+    if (err) {
       console.error(err);
       const alertMessage = 'An error occurred during registration.';
-      res.send(`<script>alert("${alertMessage}"); window.location.href="/register";</script>`);
-    });
-});
-
-app.post('/login', function (req, res) {
-    const username = req.body.username;
-    const password = md5(req.body.password);
-  
-    if (!username || !password) {
-      const alertMessage = 'Both username and password are required.';
-      return res.send(`<script>alert("${alertMessage}"); window.location.href="/login";</script>`);
+      return res.send(`<script>alert("${alertMessage}"); window.location.href="/register";</script>`);
     }
-  
-    User.findOne({ email: username })
-      .then((foundUser) => {
-        if (!foundUser) {
-          const alertMessage = 'User not found.';
-          return res.send(`<script>alert("${alertMessage}"); window.location.href="/login";</script>`);
-        }
-  
-        if (foundUser.password !== password) {
-          const alertMessage = 'Incorrect password.';
-          return res.send(`<script>alert("${alertMessage}"); window.location.href="/login";</script>`);
-        }
-  
+
+    const newUser = new User({
+      email: username,
+      password: hash,
+    });
+
+    newUser
+      .save()
+      .then(() => {
         res.render('secrets');
       })
       .catch((err) => {
         console.error(err);
-        const alertMessage = 'An error occurred during login.';
-        res.send(`<script>alert("${alertMessage}"); window.location.href="/login";</script>`);
+        const alertMessage = 'An error occurred during registration.';
+        res.send(`<script>alert("${alertMessage}"); window.location.href="/register";</script>`);
       });
   });
+});
+
+app.post('/login', function (req, res) {
+  const username = req.body.username;
+  const password = req.body.password;
+
+  if (!username || !password) {
+    const alertMessage = 'Both username and password are required.';
+    return res.send(`<script>alert("${alertMessage}"); window.location.href="/login";</script>`);
+  }
+
+  User.findOne({ email: username })
+    .then((foundUser) => {
+      if (!foundUser) {
+        const alertMessage = 'User not found.';
+        return res.send(`<script>alert("${alertMessage}"); window.location.href="/login";</script>`);
+      }
+
+      bcrypt.compare(password, foundUser.password, function (err, result) {
+        if (err || !result) {
+          const alertMessage = 'Incorrect password.';
+          return res.send(`<script>alert("${alertMessage}"); window.location.href="/login";</script>`);
+        }
+
+        res.render('secrets');
+      });
+    })
+    .catch((err) => {
+      console.error(err);
+      const alertMessage = 'An error occurred during login.';
+      res.send(`<script>alert("${alertMessage}"); window.location.href="/login";</script>`);
+    });
+});
+
 
 app.listen(3000, function () {
   console.log('Server is running.....');
